@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: webserver-configmap
+data:
+{{- range $key, $val := .Values.config }}
+{{ $key | quote | indent 6}}: {{ $val | quote }}
+{{- end}}

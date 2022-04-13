@@ -6,10 +6,17 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net"
 	"os"
 	"os/signal"
-	"sync/atomic"
 	"time"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+   	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 )
 
 type key int
@@ -19,31 +26,29 @@ const (
 )
 
 var (
-	Version      string = ""
-	GitTag       string = ""
-	GitCommit    string = ""
-	GitTreeState string = ""
 	listenAddr   string
-	healthy      int32
+	requestProcessed = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "processed_request_total",
+		Help: "The total number of events",
+	})
 )
 
 func main() {
-	flag.StringVar(&listenAddr, "listen-addr", ":5000", "server listen address")
+	flag.StringVar(&listenAddr, "listen-addr", ":8000", "server listen address")
 	flag.Parse()
 
 	logger := log.New(os.Stdout, "http: ", log.LstdFlags)
 
-	logger.Println("Simple go server")
-	logger.Println("Version:", Version)
-	logger.Println("GitTag:", GitTag)
-	logger.Println("GitCommit:", GitCommit)
-	logger.Println("GitTreeState:", GitTreeState)
-
 	logger.Println("Server is starting...")
 
+	
+
 	router := http.NewServeMux()
-	router.Handle("/", index())
-	router.Handle("/healthz", healthz())
+	router.Handle("/pods", pods())
+	router.Handle("/health", health())
+	router.Handle("/me", me())
+	router.Handle("/metrics", promhttp.Handler())
+
 
 	nextRequestID := func() string {
 		return fmt.Sprintf("%d", time.Now().UnixNano())
@@ -65,7 +70,6 @@ func main() {
 	go func() {
 		<-quit
 		logger.Println("Server is shutting down...")
-		atomic.StoreInt32(&healthy, 0)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
@@ -78,7 +82,6 @@ func main() {
 	}()
 
 	logger.Println("Server is ready to handle requests at", listenAddr)
-	atomic.StoreInt32(&healthy, 1)
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		logger.Fatalf("Could not listen on %s: %v\n", listenAddr, err)
 	}
@@ -87,26 +90,68 @@ func main() {
 	logger.Println("Server stopped")
 }
 
-func index() http.Handler {
+// GetLocalIP returns the non loopback local IP of the host
+func GetLocalIP() string {
+    addrs, err := net.InterfaceAddrs()
+    if err != nil {
+        return ""
+    }
+    for _, address := range addrs {
+        // check the address type and if it is not a loopback the display it
+        if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+            if ipnet.IP.To4() != nil {
+                return ipnet.IP.String()
+            }
+        }
+    }
+    return ""
+}
+
+func me() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/" {
-			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
-			return
-		}
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintln(w, "Hello, World!")
+		requestProcessed.Inc()
+		fmt.Fprintln(w, GetLocalIP())
 	})
 }
 
-func healthz() http.Handler {
+func pods() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if atomic.LoadInt32(&healthy) == 1 {
-			w.WriteHeader(http.StatusNoContent)
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.WriteHeader(http.StatusOK)
+		requestProcessed.Inc()
+		// creates the in-cluster config
+		config, err := rest.InClusterConfig()
+		if err != nil {
+			fmt.Fprintln(w, "not in cluster")
 			return
 		}
-		w.WriteHeader(http.StatusServiceUnavailable)
+		// creates the clientset
+		clientset, err := kubernetes.NewForConfig(config)
+		if err != nil {
+			fmt.Fprintln(w, "cant connect to cluster")
+			return
+		}	
+		pods, err := clientset.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{})
+		for _, pod := range pods.Items {
+			fmt.Fprintln(w, "pod name: " + pod.ObjectMeta.GetName())
+		}
+	})
+}
+
+func health() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		requestProcessed.Inc()
+		env, ok := os.LookupEnv("ENV")
+		if !ok {
+			fmt.Fprintln(w, "ENV is not present")
+		} else {
+			fmt.Fprintln(w, "Ok " + env)
+		}
 	})
 }
 
