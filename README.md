@@ -29,6 +29,10 @@ the helm chart was generated with `helm create webserver-helm` and later updated
 ## Jenkins (not tested)
 A declartive jenkins file was generated to pull the git repo, build the docker image, and push the image to dockerhub
 
+### Github actions (tested)
+A github action flow file was added to build and push the image on any change to the master branch
+
+
 ## Terraform (tested)
 Terraform folder was created using https://github.com/scholzj vpc and minikube modules
 the terraform also deploys the local helm chart and create nginx-ingress deployment on the minikube
