@@ -19,8 +19,6 @@ module "minikube" {
   ]
 }
 
-# This autoscaler works from-the-box with Intel core
-# When using Graviton or AMD core, AMI type need to be set explicitly in eks.node_groups
 resource "helm_release" "webserver" {
   depends_on = [
     module.minikube
@@ -28,8 +26,8 @@ resource "helm_release" "webserver" {
 
   name             = var.name
   namespace        = "default"
-  chart            = "./webserver-helm"
-  version          = "0.1.0"
+  chart            = "../../webserver-helm"
+  version          = "latest"
   create_namespace = false
 
 }

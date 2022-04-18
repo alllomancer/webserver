@@ -37,5 +37,7 @@ A github action flow file was added to build and push the image on any change to
 Terraform folder was created using https://github.com/scholzj vpc and minikube modules
 the terraform also deploys the local helm chart and create nginx-ingress deployment on the minikube
 
+also add the terraform code to deploy EKS cluster on spot instances that also deploys the webserver( i would suggest argocd for full GitOps)
+
 
 
