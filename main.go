@@ -5,18 +5,18 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"net/http"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"time"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-   	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 )
 
 type key int
@@ -26,7 +26,7 @@ const (
 )
 
 var (
-	listenAddr   string
+	listenAddr       string
 	requestProcessed = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "processed_request_total",
 		Help: "The total number of events",
@@ -41,14 +41,11 @@ func main() {
 
 	logger.Println("Server is starting...")
 
-	
-
 	router := http.NewServeMux()
-	router.Handle("/pods", pods())
-	router.Handle("/health", health())
-	router.Handle("/me", me())
+	router.HandleFunc("/pods", pods)
+	router.HandleFunc("/health", health)
+	router.HandleFunc("/me", me)
 	router.Handle("/metrics", promhttp.Handler())
-
 
 	nextRequestID := func() string {
 		return fmt.Sprintf("%d", time.Now().UnixNano())
@@ -92,67 +89,64 @@ func main() {
 
 // GetLocalIP returns the non loopback local IP of the host
 func GetLocalIP() string {
-    addrs, err := net.InterfaceAddrs()
-    if err != nil {
-        return ""
-    }
-    for _, address := range addrs {
-        // check the address type and if it is not a loopback the display it
-        if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
-            if ipnet.IP.To4() != nil {
-                return ipnet.IP.String()
-            }
-        }
-    }
-    return ""
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return ""
+	}
+	for _, address := range addrs {
+		// check the address type and if it is not a loopback the display it
+		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ipnet.IP.To4() != nil {
+				return ipnet.IP.String()
+			}
+		}
+	}
+	return ""
 }
 
-func me() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		w.Header().Set("X-Content-Type-Options", "nosniff")
-		w.WriteHeader(http.StatusOK)
-		requestProcessed.Inc()
-		fmt.Fprintln(w, GetLocalIP())
-	})
+func me(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.WriteHeader(http.StatusOK)
+	requestProcessed.Inc()
+	fmt.Fprintln(w, GetLocalIP())
+
 }
 
-func pods() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		w.Header().Set("X-Content-Type-Options", "nosniff")
-		w.WriteHeader(http.StatusOK)
-		requestProcessed.Inc()
-		// creates the in-cluster config
-		config, err := rest.InClusterConfig()
-		if err != nil {
-			fmt.Fprintln(w, "not in cluster")
-			return
-		}
-		// creates the clientset
-		clientset, err := kubernetes.NewForConfig(config)
-		if err != nil {
-			fmt.Fprintln(w, "cant connect to cluster")
-			return
-		}	
-		pods, err := clientset.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{})
-		for _, pod := range pods.Items {
-			fmt.Fprintln(w, "pod name: " + pod.ObjectMeta.GetName())
-		}
-	})
+func pods(w http.ResponseWriter, r *http.Request) {
+
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.WriteHeader(http.StatusOK)
+	requestProcessed.Inc()
+	// creates the in-cluster config
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		fmt.Fprintln(w, "not in cluster")
+		return
+	}
+	// creates the clientset
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		fmt.Fprintln(w, "cant connect to cluster")
+		return
+	}
+	pods, err := clientset.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{})
+	for _, pod := range pods.Items {
+		fmt.Fprintln(w, "pod name: "+pod.ObjectMeta.GetName())
+	}
+
 }
 
-func health() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		requestProcessed.Inc()
-		env, ok := os.LookupEnv("ENV")
-		if !ok {
-			fmt.Fprintln(w, "ENV is not present")
-		} else {
-			fmt.Fprintln(w, "Ok " + env)
-		}
-	})
+func health(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	requestProcessed.Inc()
+	env, ok := os.LookupEnv("ENV")
+	if !ok {
+		fmt.Fprintln(w, "ENV is not present")
+	} else {
+		fmt.Fprintln(w, "Ok "+env)
+	}
 }
 
 func logging(logger *log.Logger) func(http.Handler) http.Handler {
