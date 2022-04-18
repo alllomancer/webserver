@@ -3,6 +3,7 @@ WORKDIR /go/src/github.com/alllomancer/webserver
 ADD . /go/src/github.com/alllomancer/webserver
 RUN cd /go/src/github.com/alllomancer/webserver
 
+RUN go test .
 RUN go build -o /app/webserver .
 RUN chmod +x /go/src/github.com/alllomancer/webserver/ldd-cp.sh
 RUN /go/src/github.com/alllomancer/webserver/ldd-cp.sh ldd-cp  /app/webserver /temp
