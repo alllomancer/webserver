@@ -5,8 +5,8 @@
 replicaCount: 1
 
 image:
-  repository: allomancer/webserver
-  pullPolicy: IfNotPresent
+  repository: alllomancer/webserver
+  pullPolicy: Always
   # Overrides the image tag whose default is the chart appVersion.
   tag: ""
 
@@ -77,3 +77,8 @@ autoscaling:
 
 config:
   ENV: "test"
+
+## Install Default RBAC roles and bindings
+rbac:
+  # Specifies whether RBAC resources should be created
+  create: true

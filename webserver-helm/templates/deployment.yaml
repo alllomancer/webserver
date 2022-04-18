@@ -37,7 +37,7 @@ spec:
           - name: ENV
             valueFrom:
               configMapKeyRef:
-                name: webserver-config
+                name: webserver-configmap
                 key: ENV
           ports:
             - name: http

@@ -41,6 +41,7 @@ func main() {
 
 	logger.Println("Server is starting...")
 
+	//the routes
 	router := http.NewServeMux()
 	router.HandleFunc("/pods", pods)
 	router.HandleFunc("/health", health)
@@ -132,8 +133,13 @@ func pods(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	pods, err := clientset.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		fmt.Fprintln(w, "cant list pods in the cluster", err)
+		return
+	}
+	fmt.Fprintln(w, "There are ", len(pods.Items), " pods in the cluster")
 	for _, pod := range pods.Items {
-		fmt.Fprintln(w, "pod name: "+pod.ObjectMeta.GetName())
+		fmt.Fprintln(w, "pod name: ", pod.ObjectMeta.GetName())
 	}
 
 }
@@ -145,7 +151,7 @@ func health(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		fmt.Fprintln(w, "ENV is not present")
 	} else {
-		fmt.Fprintln(w, "Ok "+env)
+		fmt.Fprintln(w, "Ok ", env)
 	}
 }
 
