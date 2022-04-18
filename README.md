@@ -24,11 +24,12 @@ final image size: 54 MB
 the helm chart was generated with `helm create webserver-helm` and later updated:
  - configmap was added
  - deployement was updated to use the configmap as env variables and remove unnecessary parts
+ - clusterrole and cluster role binding were added to allow query of the cluster pods
 
 ## Jenkins (not tested)
 A declartive jenkins file was generated to pull the git repo, build the docker image, and push the image to dockerhub
 
-## Terraform (not tested)
+## Terraform (tested)
 Terraform folder was created using https://github.com/scholzj vpc and minikube modules
 the terraform also deploys the local helm chart and create nginx-ingress deployment on the minikube
 
