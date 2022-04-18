@@ -2,10 +2,15 @@ module "vpc" {
   source  = "scholzj/vpc/aws"
   version = "3.0.0"
 
-  aws_region = "eu-central-1"
-  aws_zones = ["eu-central-1a", "eu-central-1b", "eu-central-1c"]
-  vpc_name = "example-vpc"
-  vpc_cidr = "10.0.0.0/16"
+  aws_region = var.aws_region
+  aws_zones = var.aws_zones
+  vpc_name = var.name
+  vpc_cidr = var.vpc_cidr
   private_subnets = "true"
+
+  ## Tags
+  tags = {
+    app = var.name
+  }
 
 }
